@@ -18,6 +18,8 @@ struct client_data{
     int requested_seat;
 } *all_clients;
 
+std::ofstream outFile;
+
 int theaterCapacity;
 
 bool activate_tellers ;
@@ -109,17 +111,20 @@ void* tellerThread(void *param){
         case 1:
             teller = 'A';
             isAvailable[0] = true;
+            outFile<< "Teller A has arrived.\n";
             break;
         case 2:
             teller = 'B';
             isAvailable[1] = true;
+            outFile<< "Teller B has arrived.\n";
             break;
         case 3:
             teller = 'C';
             isAvailable[2]= true;
+            outFile<< "Teller C has arrived.\n";
             break;
     }
-    printf("Teller %c has arrived.\n", teller);
+//    outFile<< "Teller %c has arrived.\n";
 
     do{
         
@@ -150,8 +155,10 @@ void* tellerThread(void *param){
 
         usleep(buffers[offset-1].service_time * 1000);
      pthread_mutex_lock(&mutex_teller);
-        std::cout << buffers[offset-1].client_name;
-        printf(" requests seat %d, reserves seat %d. Signed by Teller %c.\n",buffers[offset-1].requested_seat,reservedSeats[buffers[offset-1].id], teller);
+        outFile<< buffers[offset-1].client_name << " requests seat " << buffers[offset-1].requested_seat
+        << ", reserves seat "<< reservedSeats[buffers[offset-1].id]<< ". Signed by Teller " << teller <<".\n";
+
+       // printf(" requests seat %d, reserves seat %d. Signed by Teller %c.\n",buffers[offset-1].requested_seat,reservedSeats[buffers[offset-1].id], teller);
      //  continueSignal[buffers[offset-1].id] = true;
         isAvailable[offset-1] = true;
         
@@ -173,7 +180,9 @@ int main(int argc, char *argv[]){
     inFile >> numOfClients;
     theaterCapacity = 60;
     
-    
+    outFile.open (argv[2]);
+    outFile <<"Welcome to the Sync-Ticket!\n";
+
     theaterHall = new bool[theaterCapacity]; // change it later in accordance with different theater halls
     // each chair is initialized to 0 which indicates that it is empty
 
@@ -196,7 +205,7 @@ int main(int argc, char *argv[]){
         all_clients[i].requested_seat= stoi(sub);
 
     }
-    printf("Welcome to the Sync-Ticket!\n");
+   
 
     activate_tellers = true;
     // we read the input file so far
@@ -207,6 +216,7 @@ int main(int argc, char *argv[]){
     tel_enum[2] = 3;
     for(int i = 0 ; i < 3 ; i++){
         pthread_create(&teller_tids[i], NULL, tellerThread, &tel_enum[i]);
+        usleep(1000);
     }
 
 
@@ -228,8 +238,11 @@ int main(int argc, char *argv[]){
 for(int i = 0 ; i < 3 ; i++){
         pthread_join(teller_tids[i], NULL);
     }
-    printf("All clients received service.\n");
+    outFile << "All clients received service.\n" ;
 
+
+    outFile.close();
+    inFile.close();
     delete[] all_clients;
     delete[] reservedSeats;
     delete[] theaterHall;
