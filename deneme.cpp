@@ -42,52 +42,51 @@ void* clientThread(void *param) {
    usleep(local_arrive*1000);
     
         // Start critical section
+        
+        
+      
+        
+
+        
         pthread_mutex_lock(&mutex);
+        while(1){
+        if(!isAvailable[0] && !isAvailable[1] && !isAvailable[2])
+            continue;
         
         if(isAvailable[0]){
-           /* buffer_A.id = offset;
-            buffer_A.arrival_time = local_arrive;
-            buffer_A.client_name = local_name;
-            buffer_A.requested_seat = local_request;
-            buffer_A.service_time = local_service;*/
             buffers[0].id = offset;
             buffers[0].arrival_time = local_arrive;
             buffers[0].client_name = local_name;
             buffers[0].requested_seat = local_request;
             buffers[0].service_time = local_service;
             isAvailable[0] = false;
+           // printf("this is the client id %d, sent to teller A\n", offset);
+            break;
 
-        }else if(isAvailable[1]){
-            /*buffer_B.id = offset;
-            buffer_B.arrival_time = local_arrive;
-            buffer_B.client_name = local_name;
-            buffer_B.requested_seat = local_request;
-            buffer_B.service_time = local_service;*/
+        }else if(isAvailable[1]){          
             buffers[1].id = offset;
            buffers[1].arrival_time = local_arrive;
             buffers[1].client_name = local_name;
            buffers[1].requested_seat = local_request;
             buffers[1].service_time = local_service;
             isAvailable[1] = false;
-        }else if(isAvailable[2]){
-           /* buffer_C.id = offset;
-            buffer_C.arrival_time = local_arrive;
-            buffer_C.client_name = local_name;
-            buffer_C.requested_seat = local_request;
-            buffer_C.service_time = local_service;*/
+           // printf("this is the client id %d, sent to teller B\n", offset);
+            break;
+        }else if(isAvailable[2]){          
             buffers[2].id = offset;
              buffers[2].arrival_time = local_arrive;
              buffers[2].client_name = local_name;
             buffers[2].requested_seat = local_request;
              buffers[2].service_time = local_service;
             isAvailable[2] = false;
+           // printf("this is the client id %d, sent to teller C\n", offset);
+            break;
         }
         
-       // std::cout << "this is the client name "<<local_name << " and arrival time " <<local_arrive <<std::endl;
-        // std::cout << "this is the service time "<<local_service << " and requsted seat " <<local_request<<std::endl;
+        }
         // End critical section
         pthread_mutex_unlock(&mutex);
-        usleep(local_service*1000);
+       // usleep(local_service*1000);
  
     pthread_exit(NULL);
 }
@@ -117,11 +116,20 @@ void* tellerThread(void *param){
         // DO THE ESSENTIAL WORK IN HERE
         while(isAvailable[offset-1]);
 
-        pthread_mutex_lock(&mutex);
+        pthread_mutex_lock(&mutex_teller);
 
-        printf("this is the client id %d, arrival time: %d, service time: %d, and seat: %d at %c\n ", buffers[offset-1].id,buffers[offset-1].arrival_time,buffers[offset-1].service_time,buffers[offset-1].requested_seat, teller);
+        printf("this is the client id %d, arrival time: %d, service time: %d, and seat: %d at %c\n", buffers[offset-1].id,buffers[offset-1].arrival_time,buffers[offset-1].service_time,buffers[offset-1].requested_seat, teller);
+       
+        pthread_mutex_unlock(&mutex_teller);
+
+        usleep(buffers[offset-1].service_time * 1000);
+     pthread_mutex_lock(&mutex_teller);
+        //printf("teller %c is available\n", teller);
         isAvailable[offset-1] = true;
-        pthread_mutex_unlock(&mutex);
+        //printf("teller %c is available\n", teller);
+        
+     pthread_mutex_unlock(&mutex_teller);
+
 
     }while(activate_tellers);
    printf("Teller %c has ended.\n", teller);
