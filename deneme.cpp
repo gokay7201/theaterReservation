@@ -8,6 +8,7 @@
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_teller = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_printer = PTHREAD_MUTEX_INITIALIZER;
 
 struct client_data{
     int id ;
@@ -17,20 +18,19 @@ struct client_data{
     int requested_seat;
 } *all_clients;
 
+int theaterCapacity;
 
 bool activate_tellers ;
 
-bool available_A ;
-bool available_B ;
-bool available_C ;
 bool isAvailable[3];
 
 client_data buffers[3];
-client_data buffer_A;
-client_data buffer_B;
-client_data buffer_C;
 
+int *reservedSeats; // each index represents the customer id, and value represents assigned saet number
 
+bool *theaterHall; // each index correspons to (index+1)th seat number and value represents if it is taken or not
+
+bool *continueSignal;//continue signal for clients after releasing
 
 void* clientThread(void *param) {
     int offset = *(int *) param;
@@ -42,13 +42,10 @@ void* clientThread(void *param) {
    usleep(local_arrive*1000);
     
         // Start critical section
-        
-        
-      
-        
 
         
         pthread_mutex_lock(&mutex);
+
         while(1){
         if(!isAvailable[0] && !isAvailable[1] && !isAvailable[2])
             continue;
@@ -86,6 +83,19 @@ void* clientThread(void *param) {
         }
         // End critical section
         pthread_mutex_unlock(&mutex);
+
+      /*  while(!continueSignal[offset]);
+        
+        pthread_mutex_lock(&mutex_printer);
+        std::cout<< local_name;
+        printf(" requests seat %d, reserves seat %d. Signed by Teller\n", local_request, reservedSeats[offset]);
+
+
+        pthread_mutex_unlock(&mutex_printer);
+*/
+
+
+
        // usleep(local_service*1000);
  
     pthread_exit(NULL);
@@ -118,21 +128,40 @@ void* tellerThread(void *param){
 
         pthread_mutex_lock(&mutex_teller);
 
-        printf("this is the client id %d, arrival time: %d, service time: %d, and seat: %d at %c\n", buffers[offset-1].id,buffers[offset-1].arrival_time,buffers[offset-1].service_time,buffers[offset-1].requested_seat, teller);
+        //printf("this is the client id %d, arrival time: %d, service time: %d, and seat: %d at %c\n", buffers[offset-1].id,buffers[offset-1].arrival_time,buffers[offset-1].service_time,buffers[offset-1].requested_seat, teller);
        
+        if(theaterHall[buffers[offset-1].requested_seat -1]){// if reserved
+            for(int i = 0; i< theaterCapacity; i++){
+                if(theaterHall[i])// if reserved
+                    continue;
+                else{
+                    theaterHall[i] = true;
+                    reservedSeats[buffers[offset-1].id] = i+1;
+                    break;
+                }
+            }
+        }else{
+            theaterHall[buffers[offset-1].requested_seat -1] = true;
+            reservedSeats[buffers[offset-1].id] = buffers[offset-1].requested_seat;
+        }
+
+
         pthread_mutex_unlock(&mutex_teller);
 
         usleep(buffers[offset-1].service_time * 1000);
      pthread_mutex_lock(&mutex_teller);
-        //printf("teller %c is available\n", teller);
+        std::cout << buffers[offset-1].client_name;
+        printf(" requests seat %d, reserves seat %d. Signed by Teller %c.\n",buffers[offset-1].requested_seat,reservedSeats[buffers[offset-1].id], teller);
+     //  continueSignal[buffers[offset-1].id] = true;
         isAvailable[offset-1] = true;
+        
         //printf("teller %c is available\n", teller);
         
      pthread_mutex_unlock(&mutex_teller);
 
 
     }while(activate_tellers);
-   printf("Teller %c has ended.\n", teller);
+  // printf("Teller %c has ended.\n", teller);
     pthread_exit(NULL);
 }
 
@@ -142,9 +171,17 @@ int main(int argc, char *argv[]){
     int numOfClients;
     inFile>> theaterName;
     inFile >> numOfClients;
+    theaterCapacity = 60;
+    
+    
+    theaterHall = new bool[theaterCapacity]; // change it later in accordance with different theater halls
+    // each chair is initialized to 0 which indicates that it is empty
+
     all_clients = new client_data[numOfClients];
+    reservedSeats = new int[numOfClients];
     std::string temp;
     for(int i= 0; i < numOfClients; i++){
+        reservedSeats[i] = 0; // initialley all seats are 0, before assigning to customers
         all_clients[i].id = i;
         inFile>>temp;
         std::stringstream ss(temp);  
@@ -191,7 +228,12 @@ int main(int argc, char *argv[]){
 for(int i = 0 ; i < 3 ; i++){
         pthread_join(teller_tids[i], NULL);
     }
+    printf("All clients received service.\n");
 
+    delete[] all_clients;
+    delete[] reservedSeats;
+    delete[] theaterHall;
+    delete[] continueSignal;
 
     return 0;
 }
