@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <fstream>
 #include <bits/stdc++.h>
-
+// olmayan seat istenince benim mal oturtuyor
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_teller = PTHREAD_MUTEX_INITIALIZER;
@@ -129,7 +129,7 @@ void* tellerThread(void *param){
         
         //printf("this is the client id %d, arrival time: %d, service time: %d, and seat: %d at %c\n", buffers[offset-1].id,buffers[offset-1].arrival_time,buffers[offset-1].service_time,buffers[offset-1].requested_seat, teller);
        
-        if(theaterHall[buffers[offset-1].requested_seat -1]){// if reserved
+        if(theaterHall[buffers[offset-1].requested_seat -1] ||buffers[offset-1].requested_seat> theaterCapacity){// if reserved
             for(int i = 0; i< theaterCapacity; i++){
                 if(theaterHall[i])// if reserved
                     continue;
@@ -151,7 +151,7 @@ void* tellerThread(void *param){
      pthread_mutex_lock(&mutex_teller);
         if(reservedSeats[buffers[offset-1].id] == 0){
             outFile<< buffers[offset-1].client_name << " requests seat " << buffers[offset-1].requested_seat
-        << ", reserves seat None. Signed by Teller " << teller <<".\n";
+        << ", reserves None. Signed by Teller " << teller <<".\n";
         }else{
         outFile<< buffers[offset-1].client_name << " requests seat " << buffers[offset-1].requested_seat
         << ", reserves seat "<< reservedSeats[buffers[offset-1].id]<< ". Signed by Teller " << teller <<".\n";
