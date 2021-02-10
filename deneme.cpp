@@ -1,15 +1,28 @@
+/**
+ * Name: Mehmet Gokay Yildiz
+ * Student_ID: 2017400072
+ * Compile Status: Yes
+ * Tests: All works in several runs. For configuration_file_2.txt the output may differ but mostly true.
+ * Tested on my machine Ubuntu 20.04 as WSL in g++ version 9.3.0
+ * Project: Theater Ticket Reservation System
+ * Helped to understand basic thread usage and synchronization concepts.
+ * 
+ *  
+ */
 #include <iostream>
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <fstream>
 #include <bits/stdc++.h>
-
+// probably the best version that I wrote
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_teller = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex_printer = PTHREAD_MUTEX_INITIALIZER;
-
+pthread_mutex_t mutex_client = PTHREAD_MUTEX_INITIALIZER;
+/*
+*holds all client related data
+*/
 struct client_data{
     int id ;
     std::string client_name;
@@ -32,7 +45,7 @@ int *reservedSeats; // each index represents the customer id, and value represen
 
 bool *theaterHall; // each index correspons to (index+1)th seat number and value represents if it is taken or not
 
-bool *continueSignal;//continue signal for clients after releasing
+//bool *continueSignal;//continue signal for clients after releasing
 
 void* clientThread(void *param) {
     int offset = *(int *) param;
@@ -42,16 +55,15 @@ void* clientThread(void *param) {
     int local_request = all_clients[offset].requested_seat;
 
    usleep(local_arrive*1000);
-    
-        // Start critical section
 
-        
-        pthread_mutex_lock(&mutex);
+        // Start critical section
+        pthread_mutex_lock(&mutex_client);
 
         while(1){
+             
         if(!isAvailable[0] && !isAvailable[1] && !isAvailable[2])
             continue;
-        
+        pthread_mutex_lock(&mutex);
         if(isAvailable[0]){
             buffers[0].id = offset;
             buffers[0].arrival_time = local_arrive;
@@ -59,7 +71,7 @@ void* clientThread(void *param) {
             buffers[0].requested_seat = local_request;
             buffers[0].service_time = local_service;
             isAvailable[0] = false;
-           // printf("this is the client id %d, sent to teller A\n", offset);
+            pthread_mutex_unlock(&mutex);
             break;
 
         }else if(isAvailable[1]){          
@@ -69,7 +81,7 @@ void* clientThread(void *param) {
            buffers[1].requested_seat = local_request;
             buffers[1].service_time = local_service;
             isAvailable[1] = false;
-           // printf("this is the client id %d, sent to teller B\n", offset);
+            pthread_mutex_unlock(&mutex);
             break;
         }else if(isAvailable[2]){          
             buffers[2].id = offset;
@@ -78,27 +90,18 @@ void* clientThread(void *param) {
             buffers[2].requested_seat = local_request;
              buffers[2].service_time = local_service;
             isAvailable[2] = false;
-           // printf("this is the client id %d, sent to teller C\n", offset);
+            pthread_mutex_unlock(&mutex);
             break;
         }
         
         }
         // End critical section
-        pthread_mutex_unlock(&mutex);
+        // usleep(local_service*1000);
+        pthread_mutex_unlock(&mutex_client);
 
-      /*  while(!continueSignal[offset]);
-        
-        pthread_mutex_lock(&mutex_printer);
-        std::cout<< local_name;
-        printf(" requests seat %d, reserves seat %d. Signed by Teller\n", local_request, reservedSeats[offset]);
+  
 
-
-        pthread_mutex_unlock(&mutex_printer);
-*/
-
-
-
-       // usleep(local_service*1000);
+        usleep(local_service*1000);
  
     pthread_exit(NULL);
 }
@@ -124,18 +127,22 @@ void* tellerThread(void *param){
             outFile<< "Teller C has arrived.\n";
             break;
     }
-//    outFile<< "Teller %c has arrived.\n";
 
-    do{
-        
+
+    while(activate_tellers){
+       // pthread_mutex_lock(&mutex);
         // DO THE ESSENTIAL WORK IN HERE
-        while(isAvailable[offset-1]);
+        if(isAvailable[offset-1]){ // not sure
+           // pthread_mutex_unlock(&mutex);  
+            continue;
+        }
+//          pthread_mutex_unlock(&mutex);                  // dangerous
 
         pthread_mutex_lock(&mutex_teller);
-
+        
         //printf("this is the client id %d, arrival time: %d, service time: %d, and seat: %d at %c\n", buffers[offset-1].id,buffers[offset-1].arrival_time,buffers[offset-1].service_time,buffers[offset-1].requested_seat, teller);
        
-        if(theaterHall[buffers[offset-1].requested_seat -1]){// if reserved
+        if(theaterHall[buffers[offset-1].requested_seat -1] ||buffers[offset-1].requested_seat> theaterCapacity){// if reserved
             for(int i = 0; i< theaterCapacity; i++){
                 if(theaterHall[i])// if reserved
                     continue;
@@ -155,30 +162,45 @@ void* tellerThread(void *param){
 
         usleep(buffers[offset-1].service_time * 1000);
      pthread_mutex_lock(&mutex_teller);
+        if(reservedSeats[buffers[offset-1].id] == 0){
+            outFile<< buffers[offset-1].client_name << " requests seat " << buffers[offset-1].requested_seat
+        << ", reserves None. Signed by Teller " << teller <<".\n";
+        }else{
         outFile<< buffers[offset-1].client_name << " requests seat " << buffers[offset-1].requested_seat
         << ", reserves seat "<< reservedSeats[buffers[offset-1].id]<< ". Signed by Teller " << teller <<".\n";
-
-       // printf(" requests seat %d, reserves seat %d. Signed by Teller %c.\n",buffers[offset-1].requested_seat,reservedSeats[buffers[offset-1].id], teller);
-     //  continueSignal[buffers[offset-1].id] = true;
-        isAvailable[offset-1] = true;
-        
-        //printf("teller %c is available\n", teller);
-        
+        }
      pthread_mutex_unlock(&mutex_teller);
 
+    pthread_mutex_lock(&mutex);
+     isAvailable[offset-1] = true;
+    pthread_mutex_unlock(&mutex);
 
-    }while(activate_tellers);
-  // printf("Teller %c has ended.\n", teller);
+    }
     pthread_exit(NULL);
 }
 
 int main(int argc, char *argv[]){
-     std::ifstream inFile(argv[1]);
+    std::ifstream inFile(argv[1]);
     std::string theaterName;
     int numOfClients;
     inFile>> theaterName;
     inFile >> numOfClients;
-    theaterCapacity = 60;
+    char first = theaterName.at(0);
+    switch (first)
+    {
+    case 'O':
+        theaterCapacity = 60;
+        break;
+    
+    case 'K':
+        theaterCapacity = 200;
+        break;
+    case 'U':
+        theaterCapacity = 80;
+        break;
+    }
+
+    
     
     outFile.open (argv[2]);
     outFile <<"Welcome to the Sync-Ticket!\n";
@@ -246,7 +268,7 @@ for(int i = 0 ; i < 3 ; i++){
     delete[] all_clients;
     delete[] reservedSeats;
     delete[] theaterHall;
-    delete[] continueSignal;
+   // delete[] continueSignal;
 
     return 0;
 }
