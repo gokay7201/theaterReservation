@@ -1,3 +1,3 @@
 .PHONY: compile
 compile:
-	@g++ deneme.cpp -o simulation.o -lpthread
+	@g++ simulation.cpp -o simulation.o -lpthread
