@@ -15,13 +15,13 @@
 #include <unistd.h>
 #include <fstream>
 #include <bits/stdc++.h>
-// probably the best version that I wrote
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // used to put buffer writes 
 pthread_mutex_t mutex_teller = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_client = PTHREAD_MUTEX_INITIALIZER;
 /*
-*holds all client related data
+*holds all client related data 
+*id is to me to understand and divide the data to threads accordingly
 */
 struct client_data{
     int id ;
@@ -33,19 +33,17 @@ struct client_data{
 
 std::ofstream outFile;
 
-int theaterCapacity;
+int theaterCapacity;//we understand it by looking the config_file
 
-bool activate_tellers ;
+bool activate_tellers ; // necessary to terminate the programs since we used it when all clients are served to break the infinite while in tellers
 
-bool isAvailable[3];
+bool isAvailable[3]; // to detect the availability of the tellers
 
-client_data buffers[3];
+client_data buffers[3]; //buffers are created to make the communication between teller and client threads
 
 int *reservedSeats; // each index represents the customer id, and value represents assigned saet number
 
 bool *theaterHall; // each index correspons to (index+1)th seat number and value represents if it is taken or not
-
-//bool *continueSignal;//continue signal for clients after releasing
 
 void* clientThread(void *param) {
     int offset = *(int *) param;
@@ -130,13 +128,12 @@ void* tellerThread(void *param){
 
 
     while(activate_tellers){
-       // pthread_mutex_lock(&mutex);
         // DO THE ESSENTIAL WORK IN HERE
         if(isAvailable[offset-1]){ // not sure
-         //   pthread_mutex_unlock(&mutex);  
+         
             continue;
         }
-         // pthread_mutex_unlock(&mutex);                  // dangerous
+         
 
         pthread_mutex_lock(&mutex_teller);
       
@@ -214,7 +211,7 @@ int main(int argc, char *argv[]){
     reservedSeats = new int[numOfClients];
     std::string temp;
     for(int i= 0; i < numOfClients; i++){
-        reservedSeats[i] = 0; // initialley all seats are 0, before assigning to customers
+        reservedSeats[i] = 0; // initially all seats are 0, before assigning to customers
         all_clients[i].id = i;
         inFile>>temp;
         std::stringstream ss(temp);  
@@ -270,7 +267,6 @@ for(int i = 0 ; i < 3 ; i++){
     delete[] all_clients;
     delete[] reservedSeats;
     delete[] theaterHall;
-   // delete[] continueSignal;
 
     return 0;
 }
